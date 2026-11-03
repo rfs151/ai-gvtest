@@ -1,0 +1,895 @@
+<title>GVTest 架构全景</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="GVTest 自动化测试平台的交互式架构图：模块依赖、中间件和请求数据流。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* 布局：上方标题条 + 左侧架构图（场景条、图、图例）+ 右侧说明/日志面板；窄屏时面板落到图下方 */
+:root {
+  --bg: #F2F4F3;
+  --surface: #FFFFFF;
+  --ink: #17201E;
+  --muted: #5A6763;
+  --line: #C3CCC9;
+  --zone-p: #E7ECEA;
+  --zone-s: #EEEBE4;
+  --node: #FFFFFF;
+  --node-s: #FBFAF7;
+  --node-b: #A9B5B1;
+  --accent: #0E7566;
+  --accent-soft: #D7EDE8;
+  --p-http: #2160C4;
+  --p-sql: #A86A12;
+  --p-redis: #C23B35;
+  --p-mqtt: #7546C4;
+  --p-ssh: #4B5B6B;
+  --p-proc: #2A8452;
+  --p-ci: #0B8494;
+  --ok: #1F8A4C;
+  --bad: #C23B35;
+  --warn: #A86A12;
+  --code-bg: #F5F7F6;
+  --font-sans: "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1514; --surface: #161E1C; --ink: #E3EAE7; --muted: #93A29D; --line: #34433F;
+    --zone-p: #151E1C; --zone-s: #1C1A16; --node: #1B2523; --node-s: #211F1A; --node-b: #475752;
+    --accent: #45C3AB; --accent-soft: #173A34;
+    --p-http: #6FA3F6; --p-sql: #E2AE55; --p-redis: #F0726B; --p-mqtt: #AC8BF2; --p-ssh: #9DAEBF; --p-proc: #5DC58A; --p-ci: #4FC7D5;
+    --ok: #5DC58A; --bad: #F0726B; --warn: #E2AE55; --code-bg: #111816;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1514; --surface: #161E1C; --ink: #E3EAE7; --muted: #93A29D; --line: #34433F;
+  --zone-p: #151E1C; --zone-s: #1C1A16; --node: #1B2523; --node-s: #211F1A; --node-b: #475752;
+  --accent: #45C3AB; --accent-soft: #173A34;
+  --p-http: #6FA3F6; --p-sql: #E2AE55; --p-redis: #F0726B; --p-mqtt: #AC8BF2; --p-ssh: #9DAEBF; --p-proc: #5DC58A; --p-ci: #4FC7D5;
+  --ok: #5DC58A; --bad: #F0726B; --warn: #E2AE55; --code-bg: #111816;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 28px;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; margin-bottom: 14px; }
+.top h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.top h1 span { color: var(--muted); font-weight: 400; font-size: 15px; margin-left: 10px; }
+.top p { margin: 2px 0 0; color: var(--muted); max-width: 64ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.stats b { color: var(--ink); font-weight: 500; font-size: 15px; margin-right: 4px; font-variant-numeric: tabular-nums; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 410px; gap: 14px; align-items: start; }
+.stage { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+
+.scbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 10px; border-bottom: 1px solid var(--line); align-items: center; }
+.scbar .lbl { font-size: 12px; color: var(--muted); letter-spacing: .06em; margin-right: 2px; }
+.sc { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 5px 10px; cursor: pointer; line-height: 1.3; text-align: left; }
+.sc small { display: block; font-size: 11px; color: var(--muted); }
+.sc:hover { border-color: var(--accent); }
+.sc[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.sc.star { border-color: var(--accent); }
+
+.ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.ctrl button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.ctrl button:hover:not(:disabled) { border-color: var(--accent); }
+.ctrl button:disabled { opacity: .45; cursor: default; }
+.ctrl select { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; background: var(--surface); color: var(--ink); }
+.ctrl .now { margin-left: auto; color: var(--muted); font-family: var(--font-mono); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctrl .now b { color: var(--ink); font-weight: 500; }
+
+.dgwrap { overflow-x: auto; }
+#dg { display: block; width: 100%; min-width: 880px; height: auto; max-height: calc(100vh - 280px); min-height: 520px; user-select: none; }
+.zone rect { stroke: none; }
+.zone.zp rect { fill: var(--zone-p); }
+.zone.zs rect { fill: var(--zone-s); }
+.zone text { font-size: 12px; fill: var(--muted); letter-spacing: .08em; font-family: var(--font-sans); }
+
+.edge { fill: none; stroke: var(--line); stroke-width: 1.6; transition: opacity .2s, stroke .2s; }
+.edge.ghost { stroke-dasharray: 4 4; }
+.edge.hl, .edge.on { stroke: var(--pc); stroke-width: 2.4; }
+.edge.on { stroke-dasharray: 7 6; animation: flow .6s linear infinite; }
+.edge.on.rev { animation-direction: reverse; }
+@keyframes flow { to { stroke-dashoffset: -13; } }
+.elabel { font-family: var(--font-mono); font-size: 11px; fill: var(--pc); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.elabel.show { opacity: 1; }
+
+.node { cursor: pointer; transition: opacity .2s; }
+.node rect.box { fill: var(--node); stroke: var(--node-b); stroke-width: 1.2; transition: stroke .2s, stroke-width .2s; }
+.node.sut rect.box { fill: var(--node-s); }
+.node.ghost rect.box { stroke-dasharray: 5 4; fill: transparent; }
+.node .t { font-size: 14px; font-weight: 600; fill: var(--ink); font-family: var(--font-sans); }
+.node .s { font-size: 11px; fill: var(--muted); font-family: var(--font-mono); }
+.node:hover rect.box, .node.sel rect.box { stroke: var(--accent); stroke-width: 2; }
+.node.on rect.box { stroke: var(--accent); stroke-width: 2.2; }
+.node .ring { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0; }
+.node.pulse .ring { animation: ring 1s ease-out infinite; }
+@keyframes ring { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.12); } }
+.node .ring { transform-box: fill-box; transform-origin: center; }
+
+#dg.focusing .edge:not(.hl) { opacity: .2; }
+#dg.focusing .node:not(.hl) { opacity: .45; }
+#dg.playing .edge:not(.on) { opacity: .4; }
+#dg.playing .node:not(.inv) { opacity: .45; }
+
+.pk circle.core { fill: var(--pc); }
+.pk circle.halo { fill: var(--pc); opacity: .22; }
+.pk.amb circle.core { opacity: .55; }
+.pk .tag rect { fill: var(--surface); stroke: var(--pc); stroke-width: 1; }
+.pk .tag text { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 18px; height: 3px; border-radius: 2px; background: var(--pc); display: inline-block; }
+.legend .gh i { background: none; border-top: 2px dashed var(--node-b); height: 0; }
+
+/* 协议颜色：同一个 --pc 变量给线、包、徽章用 */
+.p-http { --pc: var(--p-http); } .p-sql { --pc: var(--p-sql); } .p-redis { --pc: var(--p-redis); }
+.p-mqtt { --pc: var(--p-mqtt); } .p-ssh { --pc: var(--p-ssh); } .p-proc { --pc: var(--p-proc); } .p-ci { --pc: var(--p-ci); }
+.p-node { --pc: var(--accent); }
+
+.panel { position: sticky; top: 12px; height: calc(100vh - 24px); max-height: 940px; min-height: 520px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tabs button { flex: 1; border: 0; background: none; padding: 10px 8px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+.tabs .cnt { font-family: var(--font-mono); font-size: 11px; margin-left: 4px; color: var(--muted); }
+.tabbody { flex: 1; overflow-y: auto; min-height: 0; }
+#tab-info { padding: 16px 18px 22px; }
+#tab-log { display: flex; flex-direction: column; overflow: hidden; }
+#tab-log > .loghead, #exec { flex: none; }
+
+.info h2 { font-size: 19px; margin: 0; font-weight: 600; }
+.info .sub { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+.info h3 { font-size: 12px; letter-spacing: .08em; color: var(--muted); font-weight: 500; margin: 18px 0 6px; }
+.info p { margin: 0 0 8px; }
+.info ul { margin: 0; padding-left: 18px; }
+.info li { margin: 0 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 11.5px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; background: var(--bg); }
+.conn { list-style: none; padding: 0 !important; }
+.conn li { display: flex; gap: 8px; align-items: baseline; }
+.conn button { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; text-align: left; }
+.conn button:hover { text-decoration-color: var(--accent); }
+.badge { font-family: var(--font-mono); font-size: 10.5px; padding: 0 6px; border-radius: 3px; color: var(--pc); border: 1px solid var(--pc); white-space: nowrap; line-height: 1.6; }
+.conn .lab { color: var(--muted); font-size: 12.5px; }
+.scl { display: flex; flex-wrap: wrap; gap: 6px; }
+.scl button { border: 1px solid var(--line); background: var(--bg); border-radius: 5px; padding: 2px 9px; cursor: pointer; font-size: 12.5px; }
+.scl button:hover { border-color: var(--accent); }
+.how { counter-reset: s; list-style: none; padding: 0 !important; }
+.how li { position: relative; padding-left: 26px; }
+.how li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 11px; display: grid; place-items: center; font-family: var(--font-mono); }
+
+#exec { border-bottom: 1px solid var(--line); padding: 12px 14px; background: var(--bg); }
+.cases { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; }
+.cases li { display: grid; grid-template-columns: 52px 34px 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px; }
+.cases .id { font-family: var(--font-mono); }
+.cases .ty { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.cases .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st { font-family: var(--font-mono); font-size: 11px; padding: 0 6px; border-radius: 3px; white-space: nowrap; }
+.st.queued { color: var(--muted); }
+.st.running { color: var(--accent); background: var(--accent-soft); }
+.st.passed { color: var(--ok); border: 1px solid var(--ok); }
+.st.failed { color: var(--bad); border: 1px solid var(--bad); }
+.st.rerun { color: var(--warn); border: 1px solid var(--warn); }
+.bw { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); position: relative; }
+.bw .bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.bw .dots { display: flex; gap: 4px; } .bw .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); display: block; }
+.bw .url { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--muted); background: var(--surface); border-radius: 3px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bw .view { padding: 10px 12px; min-height: 132px; font-size: 12px; }
+.bw .view h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.bw .fld { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: center; margin-bottom: 5px; }
+.bw .fld label { color: var(--muted); }
+.bw .in { border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; min-height: 21px; font-family: var(--font-mono); font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bw .act-on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.bw .btn { display: inline-block; margin-top: 4px; padding: 2px 12px; border-radius: 3px; background: var(--accent); color: var(--surface); font-size: 11.5px; }
+.bw table { width: 100%; border-collapse: collapse; font-size: 11.5px; font-family: var(--font-mono); }
+.bw th, .bw td { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.bw th { color: var(--muted); font-weight: 400; }
+.bw .blank { color: var(--muted); display: grid; place-items: center; min-height: 112px; font-family: var(--font-mono); }
+.bw .act { font-family: var(--font-mono); font-size: 11px; padding: 5px 8px; border-top: 1px solid var(--line); color: var(--accent); background: var(--bg); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bw .flash { position: absolute; inset: 0; background: var(--surface); opacity: 0; pointer-events: none; }
+.bw.shot .flash { animation: shot .6s ease-out; }
+@keyframes shot { 0% { opacity: .9; } 100% { opacity: 0; } }
+.chip-ok { color: var(--ok); }
+
+.loghead { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.loghead b { color: var(--ink); font-weight: 600; font-size: 14px; display: block; }
+#log { list-style: none; margin: 0; padding: 6px 0 16px; flex: 1; min-height: 0; overflow-y: auto; }
+#log .empty { padding: 28px 18px; color: var(--muted); }
+.lg { padding: 9px 14px 10px; border-bottom: 1px solid var(--line); }
+.lg:last-child { background: var(--accent-soft); }
+.lg-h { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.lg-h .rt { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lg-h time { font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lg-t { font-weight: 500; margin-top: 3px; }
+.lg-t code { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.lg p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+.lg pre { margin: 6px 0 0; padding: 7px 9px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 5px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; overflow-x: auto; white-space: pre; max-height: 220px; }
+.lg pre .k { color: var(--p-mqtt); } .lg pre .s { color: var(--p-proc); } .lg pre .n { color: var(--p-sql); }
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel { position: static; height: 72vh; min-height: 420px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge.on { animation: none; }
+  .node.pulse .ring { animation: none; opacity: .6; }
+}
+</style>
+
+<header class="top">
+  <div>
+    <h1>GVTest 架构全景<span>自动化测试 · 物联网设备模拟 · 数据库 · 通信</span></h1>
+    <p>按真实实现画出的模块关系。点任意模块看它做什么、怎么实现；选一个场景，看请求和数据在模块之间怎么流动。</p>
+  </div>
+  <div class="stats" aria-label="项目规模">
+    <span><b>49</b>个页面</span><span><b>32</b>组 API 路由</span><span><b>29</b>个数据模型</span><span><b>7</b>种协议与中间件</span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage" aria-label="架构图">
+    <div class="scbar" id="scbar"><span class="lbl">场景</span></div>
+    <div class="ctrl">
+      <button id="bPlay" type="button" disabled>暂停</button>
+      <button id="bStep" type="button" disabled>单步</button>
+      <button id="bStop" type="button" disabled>结束</button>
+      <label for="speed">速度</label>
+      <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="3">3×</option></select>
+      <span class="now" id="now">空闲：图上是各连接的日常流量</span>
+    </div>
+    <div class="dgwrap"><svg id="dg" viewBox="0 34 1300 762" role="img" aria-label="GVTest 架构图"></svg></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="panel" aria-label="说明与日志">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="t-info" aria-selected="true" aria-controls="tab-info">模块说明</button>
+      <button type="button" role="tab" id="t-log" aria-selected="false" aria-controls="tab-log">请求日志<span class="cnt" id="logCnt"></span></button>
+    </div>
+    <div class="tabbody" id="tab-info" role="tabpanel"></div>
+    <div class="tabbody" id="tab-log" role="tabpanel" hidden>
+      <div class="loghead" id="loghead"><b>还没有运行场景</b>在图上方选一个场景开始。</div>
+      <div id="exec" hidden></div>
+      <ol id="log"><li class="empty">场景运行后，每一次请求、消息和 SQL 都会按顺序出现在这里，并附带数据。</li></ol>
+    </div>
+  </aside>
+</main>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const W = 170, H = 60;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const PROTO = { http: 'HTTP', sql: 'SQL', redis: 'Redis', mqtt: 'MQTT', ssh: 'SSH', proc: '进程内', ci: 'CI' };
+
+/* ---------- 节点 ---------- */
+const N = {
+  fe:      { x: 130,  y: 110, t: '前端控制台',     s: 'Vue 3 · Vite' },
+  jenkins: { x: 620,  y: 110, t: 'Jenkins CI',     s: 'Pipeline · Allure' },
+  api:     { x: 130,  y: 270, t: 'FastAPI 后端',   s: '32 组路由 · JWT' },
+  sched:   { x: 375,  y: 270, t: '调度器',          s: 'APScheduler · 每分钟' },
+  gwsim:   { x: 620,  y: 270, t: 'MQTT 服务群',     s: '网关模拟 · SOC · 监控' },
+  redis:   { x: 130,  y: 430, t: 'Redis',           s: 'Dramatiq 队列 · 信号量' },
+  mysql:   { x: 375,  y: 430, t: 'MySQL 平台库',    s: '用例 · 任务 · 消息日志' },
+  stub:    { x: 620,  y: 430, t: '打桩服务',         s: '规则匹配 · 日前市场桩' },
+  worker:  { x: 130,  y: 590, t: 'Dramatiq Worker', s: 'run_tests actor' },
+  pytest:  { x: 375,  y: 590, t: 'pytest 执行器',   s: 'fixture · POM · 重跑' },
+  browser: { x: 620,  y: 590, t: 'Playwright',      s: 'Chromium · 截图' },
+  allure:  { x: 375,  y: 740, t: 'Allure 报告',     s: '结果 · 截图附件' },
+  tunnel:  { x: 620,  y: 740, t: 'SSH 反向隧道',    s: 'paramiko · 自动重连' },
+  sutweb:  { x: 985,  y: 110, t: '业务 Web 前端',   s: '交易 · 场站管理', sut: 1 },
+  nacos:   { x: 1185, y: 110, t: 'Nacos',           s: '配置中心', sut: 1 },
+  sutapi:  { x: 985,  y: 270, t: '业务微服务',       s: '交易 · 调度 · 结算', sut: 1 },
+  mqtt:    { x: 985,  y: 430, t: 'MQTT Broker',     s: '计划 · ACK · SOC', sut: 1 },
+  agent:   { x: 1185, y: 430, t: '监控 Agent',       s: '日志检索 · 进程状态', sut: 1 },
+  sutdb:   { x: 985,  y: 590, t: '业务数据存储',     s: 'MySQL · InfluxDB · Redis', sut: 1 },
+  device:  { x: 1185, y: 590, t: '场站网关（真实）', s: '测试中由平台模拟', sut: 1, ghost: 1 },
+  jump:    { x: 985,  y: 740, t: '跳板机',           s: 'sshd · 远程端口', sut: 1 },
+  ext:     { x: 1185, y: 740, t: '外部交易平台',     s: '测试中由桩替代', sut: 1, ghost: 1 },
+};
+
+/* ---------- 模块说明 ---------- */
+const D = {
+  fe: { role: '测试人员的操作入口：写用例、编排业务组、发起执行、看报告、查数据、配置 Mock，共 49 个页面。',
+    tech: ['Vue 3', 'Vue Router', 'Vite', 'axios', 'mermaid'],
+    pts: ['只负责展示和发 HTTP 请求，测试逻辑全部在后端和 pytest 里。',
+      '可视化步骤编辑器：每一步选关键字和元素定位器，定位器来自元素字典。',
+      '元素字典有两种来源：静态解析业务系统的 Vue 源码，或用 Playwright 实时扫描页面 DOM（能覆盖弹窗和动态字段）。',
+      '任务详情页每 3 秒轮询一次，执行过程中就能看到每条用例的状态和耗时。',
+      '菜单级权限，不同角色看到不同页面。'] },
+  api: { role: '平台核心服务。管理用例、业务组、环境和各类配置，把执行请求转成队列消息；调度器、MQTT 服务和打桩服务也跑在这个进程里。',
+    tech: ['FastAPI', 'SQLAlchemy 2', 'Pydantic 2', 'JWT + bcrypt', 'Alembic'],
+    pts: ['用例存在数据库里，每次执行前重新生成 pytest 文件；字典宏在生成时就解析成字面量，生成结果可追溯。',
+      '业务组是一棵树。展开时保留重复出现的用例，并算出每条用例的失败范围和「必跑」标记。',
+      '执行接口只写任务记录、投递消息就返回，不在请求线程里跑测试。',
+      '数据查询用 pymysql 连接池，每个请求独占一条连接，避免多线程共用连接导致结果错乱；没提交的 SQL 事务由后台线程超时回收。',
+      '启动时（lifespan）建表，并启动调度器、MQTT 常驻订阅和事务清扫线程。'] },
+  sched: { role: '平台内的定时器，每分钟 tick 一次，驱动三类定时工作。',
+    tech: ['APScheduler 3'],
+    pts: ['定时任务：到点的计划投递到 Dramatiq 队列，同一天不会重复触发。',
+      '模拟 SOC：每分钟把新到期的功率计划电量累加到站点容量，并发布 SOC 消息。',
+      '数据清理：每天按设定的北京时间清理请求记录、MQTT 消息日志和投标缓存。',
+      '没有用 cron 直接按时刻触发：改时刻不用重新注册任务；后端恰好在那个时刻重启的话，起来后当天会补跑一次。'] },
+  gwsim: { role: '一组常驻在后端进程里的 MQTT 客户端：模拟场站网关、在 Broker 之间转发消息、接收监控 Agent 的数据。',
+    tech: ['paho-mqtt', 'threading', 'TLS'],
+    pts: ['网关模拟：订阅功率计划消息，按模板回 ACK；mFRR 计划在开始和结束前后各 5 分钟线性爬坡。',
+      'FCR：用均值回归随机游走模拟电网频率，再按下垂特性换算出功率。',
+      '消息转发：在订阅端和发布端两个 Broker 之间桥接，可按规则替换 payload 里的文本。',
+      '模拟 SOC：按「充电为正、放电为负」统一方向累计能量，再发布 SOC 响应。',
+      '收发的每条消息都写入 MQTT 消息日志；写库失败只记日志，不影响转发和 ACK。'] },
+  stub: { role: '替代外部交易平台的 HTTP 桩，让业务系统在测试环境拿到可控的响应。',
+    tech: ['http.server', '规则引擎', 'MQTT 远程配置'],
+    pts: ['按 conditions 规则匹配请求（方法、路径、请求体字段），返回预设响应；响应里可以用宏生成 UUID、时间等动态值。',
+      '日前市场（DA）桩嵌在后端进程里，用 ThreadingHTTPServer 启停，不额外起进程。',
+      '每次请求和响应都记录下来，页面上能看到命中了哪条规则。',
+      '可以配置返回超时或错误码，测试业务系统的异常处理。',
+      'Mock 配置可以通过 MQTT 远程查询或整体替换。'] },
+  tunnel: { role: '把内网业务系统对外部平台的调用，引回到平台本地的打桩服务。',
+    tech: ['paramiko', 'SSH 远程端口转发'],
+    pts: ['在跳板机上申请远程端口（request_port_forward），业务服务把三方地址指向这个端口。',
+      '跳板机收到的连接经 SSH 通道转到本机打桩服务。',
+      'accept 用 1 秒超时轮询，停止隧道时能及时退出。',
+      '断线或连接失败每 5 秒重试；私钥依次尝试多种格式。'] },
+  redis: { role: '任务队列和跨进程协调。',
+    tech: ['Redis 7', 'Dramatiq RedisBroker', 'Lua'],
+    pts: ['Dramatiq 的消息队列：后端和调度器投递，Worker 消费。',
+      '并发信号量用 Lua 脚本实现，「判断 + 加一」是原子操作；键带 2 小时过期，Worker 异常退出也不会一直占着名额。',
+      'UI 和 API 用例分开限流，UI 用例更占资源。',
+      '撤销任务：后端改状态，Worker 里的监视线程每 2 秒检查一次，发现撤销就结束 pytest 进程。'] },
+  mysql: { role: '平台自己的数据库，共 29 个数据模型。',
+    tech: ['MySQL 8', 'SQLAlchemy', 'Alembic'],
+    pts: ['用例、用例组、业务组、动作组、元素字典、环境配置。',
+      '任务记录和逐条用例结果（case_results），执行中实时更新。',
+      'MQTT 消息日志、三方请求记录、功率计划、站点容量状态和历史。',
+      '定时任务、Broker 配置、SSH 配置、用户和菜单权限。',
+      '业务组可以跨环境同步：发布端维护，订阅端只读。'] },
+  worker: { role: '真正执行测试的进程：从队列取任务，启动 pytest 子进程，解析输出并实时写回结果。',
+    tech: ['Dramatiq actor', 'subprocess', 'threading'],
+    pts: ['按业务组设置的超时下发消息级 time_limit，覆盖默认的 10 分钟。',
+      '用 python -u 启动 pytest，逐行读 -v 输出，每条用例一结束就写回结果，不用等整批跑完。',
+      '能区分 PASSED、FAILED、setup 阶段 ERROR、SKIPPED；失败重跑时以最后一次为准。',
+      '超时异常是从别的线程注入的，相关变量提前初始化，保证超时时已经跑完的结果也能落库。',
+      '同一业务组里前面的用例失败后，排在后面、且不是「必跑」的用例自动跳过。'] },
+  pytest: { role: '测试框架层：fixture、页面对象、重跑和失败截图。',
+    tech: ['pytest 8', 'pytest-playwright', 'httpx', 'allure-pytest', 'pytest-rerunfailures'],
+    pts: ['browser 整个会话共用一个；authenticated_context 只登录一次，保存登录状态。',
+      'page 每条用例独立；auth_page 从已登录的上下文派生，不用重复登录。',
+      'cleanup_registry：用例里注册清理函数，结束时倒序执行，不留测试数据。',
+      '页面对象模式（POM），所有页面继承 BasePage。',
+      '失败自动重跑 2 次，失败时由 hook 自动截图。',
+      '同一任务的用例共享变量文件，前一条用例拿到的值可以给后一条用。'] },
+  browser: { role: '驱动真实浏览器操作业务系统页面。',
+    tech: ['Playwright 1.44', 'Chromium'],
+    pts: ['整个会话一个浏览器实例，每条用例一个独立上下文，互不影响。',
+      '可以按环境设置 slow_mo，放慢动作方便观察。',
+      '失败截图保存到 reports/screenshots，同时作为附件进 Allure 报告。'] },
+  allure: { role: '测试报告。', tech: ['allure-pytest', 'Jenkins Allure 插件'],
+    pts: ['pytest 写 allure-results，附带截图、请求和响应。', 'Jenkins 上生成趋势报告，平台的报告页也能查看。'] },
+  jenkins: { role: '持续集成：代码合并或定时触发回归。', tech: ['Jenkinsfile', 'Allure 插件'],
+    pts: ['流水线：拉代码 → 安装依赖和浏览器 → 运行测试 → 发布 Allure 报告并归档失败截图。', '和平台共用同一套 tests 目录和 conftest。'] },
+  sutweb: { role: '被测业务系统的前端：交易、场站管理等页面。', tech: ['Vue', 'Element Plus'],
+    pts: ['UI 用例通过 Playwright 在这里登录、填表、提交、检查列表。', '元素字典就是从这些页面的源码和 DOM 生成的。'] },
+  sutapi: { role: '被测业务系统的后端微服务：交易、调度、结算、场站管理。', tech: ['微服务', 'REST', 'MQTT'],
+    pts: ['API 用例用 httpx 直接调用。', '把功率计划经 MQTT 下发给场站网关，并等待 ACK。', '会调用外部交易平台；测试环境里这些调用被引到打桩服务。'] },
+  mqtt: { role: '业务系统和场站网关之间的消息通道。', tech: ['MQTT 3.1.1', 'QoS 1', 'retained', 'TLS'],
+    pts: ['下行：功率计划、调频指令。', '上行：ACK、SOC、运行状态。', '平台在这里同时扮演场站网关（模拟）和监控 Agent 的控制端。', 'Broker 连接信息按环境配置，订阅端和发布端可以是不同的 Broker。'] },
+  agent: { role: '部署在业务主机上的小脚本，替平台查日志、看进程。', tech: ['Python', 'paho-mqtt'],
+    pts: ['本地只保存 MQTT 连接信息和一个主题前缀，其余配置都由平台推送，改配置不用重启。',
+      '平台用 retained 消息推配置，Agent 重连后立刻拿到最新的一份。',
+      'Agent 启动时也会主动请求一次配置，补上错过推送的情况。',
+      '按关键字搜索最近 N 行日志并回传；定时上报进程状态，支持远程启停。'] },
+  sutdb: { role: '业务系统的数据：关系数据、时序数据和缓存。', tech: ['MySQL', 'InfluxDB', 'Redis'],
+    pts: ['用例里的数据库断言直接查这里，确认页面操作真的写进了库。', '平台的数据查询页可以只读查询这三种存储。'] },
+  nacos: { role: '业务系统的配置中心。', tech: ['Nacos Open API'],
+    pts: ['平台直接调用 Open API：登录（token 按环境缓存到过期）、发布配置、查历史和差异。', '用例里的 set-value 步骤用它切换业务开关，测试结束再改回来。'] },
+  jump: { role: '内网和外部之间的跳板机。', tech: ['sshd', 'GatewayPorts'],
+    pts: ['平台用 SSH 在这里开远程端口。', '业务服务对外部平台的请求打到这个端口，再经隧道回到平台。'] },
+  device: { role: '生产环境里真实的场站网关和储能设备。测试环境没有真实设备，由平台的 MQTT 服务群模拟。', tech: ['MQTT'],
+    pts: ['模拟内容：计划 ACK、功率跟随、SOC 变化。', '因为是模拟的，可以构造超时、拒绝等在真实设备上很难复现的情况。'] },
+  ext: { role: '真实的外部交易平台。测试环境不调用它，由打桩服务替代。', tech: ['HTTP'],
+    pts: ['业务服务的三方地址在测试环境指向跳板机端口，请求经 SSH 隧道到打桩服务。'] },
+};
+
+/* ---------- 连接（正交折线，端点在节点边框上） ---------- */
+const E = [
+  ['fe', 'api', 'http', 'REST · JWT', [[130,140],[130,240]]],
+  ['api', 'redis', 'redis', '投递任务', [[130,300],[130,400]]],
+  ['redis', 'worker', 'redis', '消费 · 信号量', [[130,460],[130,560]]],
+  ['api', 'sched', 'proc', '同进程', [[215,270],[290,270]]],
+  ['api', 'mysql', 'sql', 'SQLAlchemy', [[190,300],[190,340],[345,340],[345,400]]],
+  ['api', 'gwsim', 'proc', '同进程线程', [[175,240],[175,215],[600,215],[600,240]]],
+  ['api', 'nacos', 'http', 'Nacos Open API', [[100,240],[100,190],[1140,190],[1140,140]]],
+  ['api', 'sutdb', 'sql', '数据查询（只读）', [[45,280],[28,280],[28,500],[860,500],[860,590],[900,590]]],
+  ['sched', 'redis', 'redis', '定时投递', [[305,300],[305,375],[235,375],[235,425],[215,425]]],
+  ['sched', 'mysql', 'sql', '定时任务 · 清理', [[375,300],[375,400]]],
+  ['sched', 'gwsim', 'proc', 'SOC tick', [[460,270],[535,270]]],
+  ['worker', 'pytest', 'proc', 'subprocess · stdout', [[215,590],[290,590]]],
+  ['worker', 'mysql', 'sql', '结果实时落库', [[200,560],[200,515],[330,515],[330,460]]],
+  ['pytest', 'browser', 'proc', 'Playwright API', [[460,590],[535,590]]],
+  ['pytest', 'allure', 'proc', 'allure-results', [[375,620],[375,710]]],
+  ['pytest', 'sutapi', 'http', 'httpx 接口测试', [[400,620],[400,680],[790,680],[790,280],[900,280]]],
+  ['pytest', 'sutdb', 'sql', '数据库断言', [[440,620],[440,655],[930,655],[930,620]]],
+  ['jenkins', 'pytest', 'ci', 'CI 触发', [[535,110],[500,110],[500,530],[420,530],[420,560]]],
+  ['browser', 'sutweb', 'http', 'HTTPS 页面操作', [[705,590],[770,590],[770,100],[900,100]]],
+  ['gwsim', 'mqtt', 'mqtt', '订阅 / 发布', [[705,285],[745,285],[745,415],[900,415]]],
+  ['gwsim', 'mysql', 'sql', 'MQTT 消息日志', [[580,300],[580,370],[420,370],[420,400]]],
+  ['stub', 'mysql', 'sql', '请求记录', [[535,430],[460,430]]],
+  ['tunnel', 'stub', 'proc', '转到本地端口', [[705,730],[725,730],[725,440],[705,440]]],
+  ['tunnel', 'jump', 'ssh', 'SSH -R 远程转发', [[705,750],[900,750]]],
+  ['sutweb', 'sutapi', 'http', 'REST', [[985,140],[985,240]]],
+  ['nacos', 'sutapi', 'http', '配置推送', [[1185,140],[1185,270],[1070,270]]],
+  ['sutapi', 'mqtt', 'mqtt', '计划下发 / ACK', [[985,300],[985,400]]],
+  ['sutapi', 'sutdb', 'sql', '读写', [[1070,285],[1090,285],[1090,580],[1070,580]]],
+  ['sutapi', 'jump', 'http', '三方请求', [[900,255],[880,255],[880,730],[900,730]]],
+  ['mqtt', 'agent', 'mqtt', '日志 / 监控', [[1070,430],[1100,430]]],
+  ['mqtt', 'device', 'mqtt', '生产链路', [[1050,460],[1050,500],[1185,500],[1185,560]], 1],
+  ['jump', 'ext', 'http', '原调用目标', [[1070,740],[1100,740]], 1],
+];
+
+/* ---------- 场景 ---------- */
+const SC = [
+  { id: 'run', name: '执行业务组', sub: 'UI + API + 数据库断言', exec: true, base: [14, 2, 0],
+    desc: '前端提交一个业务组，经队列交给 Worker，pytest 依次跑 UI、接口和数据库断言用例，第 3 条第一次失败后自动重跑通过。',
+    steps: [
+      { e: 'fe-api', tag: 'POST /api/tasks/run', title: '提交执行请求', note: '选择业务组「mFRR 计划全流程」，环境 test。', data: { biz_group_ids: [12], env: 'test', type: 'UI', slow_mo: 0 } },
+      { n: 'api', title: '展开业务组、生成用例文件', note: '按树展开成有序用例列表，计算失败范围和必跑标记；从数据库重新生成每条用例的 pytest 文件。',
+        data: { paths: ['tests/ui/test_TC101.py', 'tests/api/test_TC102.py', 'tests/api/test_TC103.py'], fail_scope_ids: [12, 12, 12], must_run_flags: [false, false, false] }, ex: s => s.cases.forEach(c => c.st = 'queued') },
+      { e: 'api-mysql', tag: 'INSERT tasks', title: '写任务记录', data: `INSERT INTO tasks (status, task_type, biz_group_ids, created_by)\nVALUES ('PENDING', 'UI', '[12]', 'qa_robot');\n-- task_id = 4821` },
+      { e: 'api-redis', tag: 'enqueue run_tests', title: '投递 Dramatiq 消息', note: '接口立刻返回 task_id，前端跳到任务详情页。', data: { queue: 'default', actor: 'run_tests', kwargs: { task_id: 4821, task_type: 'UI', sem_key: 'sem:env:test', concurrency: 2 }, options: { time_limit: 1800000 } } },
+      { e: 'redis-worker', tag: 'consume', title: 'Worker 取到任务' },
+      { e: 'redis-worker', d: -1, tag: 'EVAL acquire_sem', title: '获取并发名额', note: 'Lua 脚本原子地判断并加一：当前 1 个任务在跑，上限 2。', data: `EVAL acquire_sem 1 sem:env:test 2\n-- cur = 1 < 2 → INCR + EXPIRE 7200 → acquired` },
+      { e: 'worker-pytest', tag: 'Popen pytest', title: '启动 pytest 子进程', data: `python -u -m pytest -v \\\n  tests/ui/test_TC101.py tests/api/test_TC102.py tests/api/test_TC103.py \\\n  --reruns 2 --reruns-delay 1 --alluredir=reports/allure-results`, ex: s => setCase(s, 'TC101', 'running') },
+      { e: 'pytest-browser', tag: 'chromium.launch()', title: '启动浏览器（会话级，只启动一次）', ex: s => Object.assign(s.br, { screen: 'blank', url: 'about:blank', act: 'browser = playwright.chromium.launch()' }) },
+      { e: 'browser-sutweb', tag: 'GET /login', title: '打开登录页并登录', note: 'authenticated_context 只登录一次并保存登录状态，后面的 UI 用例直接复用。',
+        data: `page.goto(BASE_URL + "/login")\npage.fill("#username", "qa_robot")\npage.fill("#password", "******")\npage.click("button:has-text('登录')")`,
+        ex: s => Object.assign(s.br, { screen: 'login', url: 'https://trade.test.local/login', vals: { user: 'qa_robot', pw: '••••••' }, active: 'login', act: `page.click("button:has-text('登录')")` }) },
+      { e: 'sutweb-sutapi', tag: 'POST /auth/login', title: '业务系统鉴权', data: { status: 200, body: { token: 'eyJhbGciOiJIUzI1NiJ9…', expiresIn: 7200 } },
+        ex: s => Object.assign(s.br, { screen: 'plan', url: 'https://trade.test.local/trader/plan/create', vals: {}, active: null, act: 'context.storage_state(path="reports/.auth_state.json")' }) },
+      { e: 'browser-sutweb', tag: '填写功率计划', title: '填写并提交表单（页面对象）',
+        data: `plan = PowerPlanPage(auth_page)\nplan.open_create()\nplan.select_site("SITE-1024 北区储能站")\nplan.select_type("MFRR_UP")\nplan.fill_power(500)\nplan.fill_window("14:00", "14:15")\nplan.submit()`,
+        ex: s => Object.assign(s.br, { vals: { site: 'SITE-1024 北区储能站', type: 'MFRR_UP', power: '500', win: '14:00 – 14:15' }, active: 'submit', act: `page.click("text=提交")` }) },
+      { e: 'sutweb-sutapi', tag: 'POST /trader/site/plan', title: '业务前端调用下单接口', data: { siteId: 1024, planType: 'MFRR_UP', powerKw: 500, startTime: '2026-11-03 14:00:00', endTime: '2026-11-03 14:15:00' },
+        ex: s => Object.assign(s.br, { screen: 'list', url: 'https://trade.test.local/trader/plan', active: 'row', act: `expect(row).to_contain_text("已下发")` }) },
+      { e: 'worker-pytest', d: -1, tag: 'stdout: PASSED', title: '解析到第一条结果', data: `tests/ui/test_TC101.py::test_create_mfrr_plan PASSED          [ 33%]`, ex: s => { setCase(s, 'TC101', 'passed', '8.4s'); setCase(s, 'TC102', 'running'); } },
+      { e: 'worker-mysql', tag: 'UPDATE case_results', title: '结果立即落库', data: `UPDATE tasks\nSET case_results   = '{"TC101#1": "PASSED"}',\n    case_durations = '{"TC101#1": 8.4}'\nWHERE id = 4821;` },
+      { e: 'fe-api', tag: 'GET /api/tasks/4821', title: '前端轮询（每 3 秒）', data: { status: 'RUNNING', progress: '1/3', case_results: { 'TC101#1': 'PASSED' } } },
+      { e: 'pytest-sutapi', tag: 'GET /trader/site/plan/latest', title: 'TC102 接口校验', note: '用 httpx 调接口，检查返回的计划号和上一条用例存下的变量一致。',
+        data: `r = api_client.get("/trader/site/plan/latest", params={"siteId": 1024})\nassert r.status_code == 200\nassert r.json()["data"]["planId"] == vars["plan_id"]   # P-20261103-0007\nassert r.json()["data"]["status"] in ("SENT", "ACKED")` },
+      { e: 'worker-pytest', d: -1, tag: 'stdout: PASSED', title: 'TC102 通过', data: `tests/api/test_TC102.py::test_latest_plan PASSED              [ 66%]`, ex: s => { setCase(s, 'TC102', 'passed', '1.2s'); setCase(s, 'TC103', 'running'); } },
+      { e: 'pytest-sutdb', tag: 'SELECT status', title: 'TC103 数据库断言（第 1 次）', note: '网关 ACK 还没回来，状态仍是 SENT，断言失败。',
+        data: `SELECT status FROM power_plan WHERE plan_id = 'P-20261103-0007';\n-- 'SENT'    期望 'ACKED' → AssertionError`, ex: s => setCase(s, 'TC103', 'failed', '第 1 次') },
+      { e: 'pytest-browser', tag: 'page.screenshot()', title: '失败自动截图', data: `reports/screenshots/test_TC103_plan_acked_20261103_140212.png`,
+        ex: s => { Object.assign(s.br, { act: 'page.screenshot(path="reports/screenshots/…TC103.png")' }); s.shot = true; } },
+      { e: 'worker-pytest', d: -1, tag: 'stdout: RERUN', title: '失败重跑', note: 'pytest-rerunfailures 间隔 1 秒重跑；Worker 以最后一次结果为准。', data: `tests/api/test_TC103.py::test_plan_acked RERUN                 [100%]`, ex: s => setCase(s, 'TC103', 'rerun', '重跑中') },
+      { e: 'pytest-sutdb', tag: 'SELECT status', title: 'TC103 第 2 次', note: '这时网关模拟已经回了 ACK（过程见场景「计划下发与网关 ACK」）。',
+        data: `SELECT status, ack_at FROM power_plan WHERE plan_id = 'P-20261103-0007';\n-- 'ACKED', '2026-11-03 14:02:13'   ✓` },
+      { e: 'worker-pytest', d: -1, tag: 'stdout: PASSED', title: 'TC103 通过', data: `tests/api/test_TC103.py::test_plan_acked PASSED               [100%]\n=============== 3 passed, 1 rerun in 21.37s ===============`, ex: s => setCase(s, 'TC103', 'passed', '重跑 1 次') },
+      { e: 'pytest-allure', tag: 'allure-results', title: '写入 Allure 结果', data: `reports/allure-results/\n  ├─ 6f1c…-result.json      TC101\n  ├─ 9a07…-result.json      TC102\n  ├─ c2e4…-result.json      TC103（重跑 1 次）\n  └─ 51b8…-attachment.png   失败截图` },
+      { e: 'worker-mysql', tag: 'status = SUCCESS', title: '任务完成', data: `UPDATE tasks SET status = 'SUCCESS', passed = 3, failed = 0,\n       finished_at = NOW() WHERE id = 4821;` },
+      { e: 'redis-worker', d: -1, tag: 'DECR sem', title: '释放并发名额' },
+      { e: 'fe-api', tag: 'GET /api/tasks/4821', title: '前端拿到最终结果', data: { status: 'SUCCESS', passed: 3, failed: 0, reruns: 1, duration: '21.4s', report: '/reports/4821' } },
+    ] },
+  { id: 'ack', name: '计划下发与网关 ACK', sub: 'MQTT 设备模拟', base: [14, 2, 11],
+    desc: '业务服务把功率计划经 MQTT 下发，平台扮演场站网关收到消息、记录、按模板回 ACK。',
+    steps: [
+      { e: 'sutapi-mqtt', tag: 'PUBLISH …/plan', title: '业务服务下发功率计划', data: { topic: 'vpp/site/1024/plan', qos: 1, payload: { planId: 'P-20261103-0007', siteId: 1024, type: 'MFRR_UP', powerKw: 500, startTime: '2026-11-03 14:00:00', endTime: '2026-11-03 14:15:00' } } },
+      { e: 'gwsim-mqtt', d: -1, tag: 'on_message', title: '网关模拟收到消息', note: '测试环境没有真实网关，平台订阅了计划主题，扮演网关。' },
+      { e: 'gwsim-mysql', tag: 'INSERT', title: '记录计划和入站消息', data: `INSERT INTO power_plan (plan_id, site_id, plan_type, power_kw, start_at, end_at) VALUES (…);\nINSERT INTO mqtt_message_log (direction, topic, payload) VALUES ('IN', 'vpp/site/1024/plan', …);` },
+      { n: 'gwsim', title: '生成 ACK 和功率曲线', note: 'mFRR 在开始和结束前后各 5 分钟线性爬坡。', data: `13:55 → 14:00     0 → 500 kW   爬坡\n14:00 → 14:15   500 kW\n14:15 → 14:20   500 → 0 kW     下坡` },
+      { e: 'gwsim-mqtt', tag: 'PUBLISH …/ack', title: '回复 ACK', data: { topic: 'vpp/site/1024/plan/ack', qos: 1, payload: { planId: 'P-20261103-0007', result: 'ACCEPTED', ts: '2026-11-03T14:02:13+08:00' } } },
+      { e: 'sutapi-mqtt', d: -1, tag: 'ACK', title: '业务服务收到 ACK' },
+      { e: 'sutapi-sutdb', tag: 'UPDATE status', title: '计划状态改为 ACKED', data: `UPDATE power_plan SET status = 'ACKED', ack_at = NOW()\nWHERE plan_id = 'P-20261103-0007';` },
+      { e: 'gwsim-mysql', tag: 'INSERT log', title: '出站消息也落库', note: '写日志失败只记录错误，不影响 ACK 发送。' },
+    ] },
+  { id: 'soc', name: '模拟 SOC 上报', sub: '定时 + 能量计算', base: [14, 5, 0],
+    desc: '调度器每分钟触发一次，平台按到期的功率计划累计能量，算出 SOC 再经 MQTT 上报。',
+    steps: [
+      { e: 'sched-gwsim', tag: 'tick 14:05', title: '每分钟触发' },
+      { e: 'gwsim-mysql', tag: 'SELECT power_plan', title: '取本分钟新到期的计划电量', data: `SELECT plan_type, power_kw FROM power_plan\nWHERE site_id = 1024 AND slot_end > :last_tick AND slot_end <= '14:05';\n-- MFRR_UP  500 kW × 1 min` },
+      { n: 'gwsim', title: '累计能量', note: '先统一成「充电为正、放电为负」再累加；mFRR 上调是放电，取负。', data: `energy = 1200.00 kWh + (−500 kW × 1/60 h) = 1191.67 kWh\nsoc    = 1191.67 / 2000 kWh            = 59.6 %\npower  = +500 kW（对外约定：放电为正）` },
+      { e: 'gwsim-mysql', tag: 'UPDATE capacity', title: '更新站点容量状态和历史', data: `UPDATE site_capacity_status\nSET current_energy_kwh = 1191.67, current_power_kw = 500\nWHERE site_id = 1024;\nINSERT INTO site_capacity_status_history (…) VALUES (…);` },
+      { e: 'gwsim-mqtt', tag: 'PUBLISH …/soc', title: '发布 SOC 响应', data: { topic: 'vpp/site/1024/soc', qos: 1, payload: { siteId: 1024, soc: 59.6, currentEnergyKwh: 1191.67, currentPowerKw: 500, ts: '2026-11-03T14:05:00+08:00' } } },
+      { e: 'sutapi-mqtt', d: -1, tag: 'SOC', title: '业务服务接收' },
+      { e: 'sutapi-sutdb', tag: 'write InfluxDB', title: '写入时序库', data: `site_soc,site=1024 soc=59.6,energy=1191.67,power=500 1793944800000000000` },
+    ] },
+  { id: 'log', name: '远程日志检索', sub: 'MQTT + 主机 Agent', base: [14, 6, 30],
+    desc: '平台不直接登录业务主机，而是通过 MQTT 让主机上的 Agent 检索日志并回传。',
+    steps: [
+      { e: 'fe-api', tag: 'POST /api/data-query/log', title: '按计划号搜索业务日志', data: { host: 'trade-svc-01', key: 'P-20261103-0007', lines: 50 } },
+      { e: 'api-gwsim', tag: 'publish()', title: '交给 MQTT 客户端' },
+      { e: 'gwsim-mqtt', tag: 'PUBLISH log/req', title: '发到这台主机专属的主题', data: { topic: 'gvtest/log/req/trade-svc-01', payload: { req_id: 'q-71c2', key: 'P-20261103-0007', lines: 50 } } },
+      { e: 'mqtt-agent', tag: 'deliver', title: 'Agent 收到请求', note: '每个 Agent 只订阅自己 client_id 下的主题，多台主机互不串话。' },
+      { n: 'agent', title: '在本机检索日志', data: `grep -n "P-20261103-0007" /data/logs/trade-svc/app.log | tail -50\n-- 3 条匹配` },
+      { e: 'mqtt-agent', d: -1, tag: 'PUBLISH log/resp', title: '回传结果', data: { topic: 'gvtest/log/resp/trade-svc-01', payload: { req_id: 'q-71c2', lines: ['14:02:11.204 INFO  PlanService  create plan P-20261103-0007 site=1024', '14:02:11.390 INFO  MqttSender   publish vpp/site/1024/plan qos=1', '14:02:13.018 INFO  AckListener  plan P-20261103-0007 ACKED'] } } },
+      { e: 'gwsim-mqtt', d: -1, tag: 'on_message', title: '平台收到响应' },
+      { e: 'api-gwsim', d: -1, tag: 'match req_id', title: '按 req_id 对上请求' },
+      { e: 'fe-api', d: -1, tag: '200 OK', title: '页面显示 3 条日志' },
+      { e: 'gwsim-mqtt', tag: 'PUBLISH retained', title: '补充：推送 Agent 配置', note: '保存主机监控配置时，平台用 retained 消息推送；Agent 重连后马上能拿到，不用重启。', data: { topic: 'agent/config/trade-svc-01', retain: true, payload: { mon_interval: 30, mon_services: ['trade-svc', 'settle-svc'] } } },
+      { e: 'mqtt-agent', tag: 'retained', title: 'Agent 更新订阅和监控项' },
+    ] },
+  { id: 'stub', name: '三方接口打桩', sub: 'SSH 反向隧道', base: [14, 3, 20],
+    desc: '业务服务调用「外部交易平台」，请求经跳板机和 SSH 隧道回到平台的打桩服务，按规则返回可控的响应。',
+    steps: [
+      { e: 'tunnel-jump', tag: 'SSH connect', title: '建立 SSH 连接、申请远程端口', note: '后端用 paramiko 发起，在跳板机上监听 18080。', data: `transport = client.get_transport()\ntransport.request_port_forward("0.0.0.0", 18080)\n# 断线每 5 秒重连` },
+      { e: 'sutapi-jump', tag: 'POST :18080/bid/submit', title: '业务服务调用「外部交易平台」', note: '测试环境里，三方地址配置指向跳板机端口。', data: { url: 'http://jump-host:18080/api/bid/submit', body: { orderId: 'O-88231', product: 'MFRR_UP', volumeMw: 0.5, price: 86.4 } } },
+      { e: 'tunnel-jump', d: -1, tag: 'channel', title: '跳板机经 SSH 通道转发' },
+      { e: 'tunnel-stub', tag: '127.0.0.1:9100', title: '转给本地打桩服务' },
+      { n: 'stub', title: '规则匹配', note: '按方法、路径和请求体条件找到第一条命中的规则，用宏生成动态值。', data: { rule: 'bid_submit_accept', conditions: [{ field: 'body.product', op: 'in', value: ['MFRR_UP', 'MFRR_DOWN'] }], response: { code: 0, bidId: '${uuid}', acceptedAt: '${now}' } } },
+      { e: 'stub-mysql', tag: 'INSERT request_records', title: '记录请求、响应和命中的规则' },
+      { e: 'tunnel-stub', d: -1, tag: '200', title: '返回响应', data: { code: 0, bidId: 'b6c1e0a2-4f1d-4c55-9a0e-1f2b3c4d5e6f', acceptedAt: '2026-11-03 14:03:27' } },
+      { e: 'tunnel-jump', tag: 'channel', title: '响应回到跳板机' },
+      { e: 'sutapi-jump', d: -1, tag: '200 OK', title: '业务服务拿到可控响应', note: '把规则改成返回超时或错误码，就能测业务系统的异常处理。' },
+    ] },
+  { id: 'query', name: '业务数据查询', sub: 'MySQL · InfluxDB', base: [14, 8, 0],
+    desc: '测试人员在平台上只读查询业务库和时序库，核对用例结果。',
+    steps: [
+      { e: 'fe-api', tag: 'POST /api/data-query/sql', title: '提交只读 SQL', data: { sql: 'SELECT plan_id, status, ack_at FROM power_plan WHERE site_id = 1024 ORDER BY id DESC LIMIT 3' } },
+      { n: 'api', title: '校验 + 从连接池取连接', note: '只允许查询语句；连接在本次请求期间独占，用完归还。' },
+      { e: 'api-sutdb', tag: 'pymysql', title: '查询业务 MySQL', data: `SELECT plan_id, status, ack_at FROM power_plan\nWHERE site_id = 1024 ORDER BY id DESC LIMIT 3;` },
+      { e: 'api-sutdb', d: -1, tag: '3 rows', title: '返回结果', data: `P-20261103-0007 | ACKED | 2026-11-03 14:02:13\nP-20261103-0006 | DONE  | 2026-11-03 10:31:40\nP-20261103-0005 | DONE  | 2026-11-03 09:00:12` },
+      { e: 'api-sutdb', tag: 'Flux', title: '查询 InfluxDB 功率曲线', data: `from(bucket: "site")\n  |> range(start: 2026-11-03T13:50:00Z, stop: 2026-11-03T14:30:00Z)\n  |> filter(fn: (r) => r._measurement == "site_soc" and r.site == "1024")` },
+      { e: 'api-sutdb', d: -1, tag: '41 points', title: '返回时序数据' },
+      { e: 'fe-api', d: -1, tag: '200 OK', title: '页面显示表格和曲线' },
+    ] },
+  { id: 'sched', name: '定时回归与 CI', sub: '调度 · Jenkins · 报告', base: [2, 0, 0],
+    desc: '凌晨 2 点调度器自动跑全量回归；代码合并后 Jenkins 也会触发；3 点清理旧数据。',
+    steps: [
+      { e: 'sched-mysql', tag: 'SELECT scheduled_tasks', title: '检查到点的定时任务', data: `SELECT * FROM scheduled_tasks\nWHERE enabled = 1 AND run_at = '02:00'\n  AND (last_run_date IS NULL OR last_run_date < CURDATE());` },
+      { e: 'sched-redis', tag: 'enqueue', title: '投递夜间回归', data: { actor: 'run_tests', kwargs: { task_id: 4830, biz_group_ids: [3, 7, 12], concurrency: 2 } } },
+      { e: 'redis-worker', tag: 'consume', title: 'Worker 取到任务' },
+      { e: 'worker-pytest', tag: 'Popen pytest', title: '执行 128 条用例' },
+      { e: 'pytest-allure', tag: 'allure-results', title: '写报告' },
+      { e: 'worker-mysql', tag: 'status', title: '记录结果', data: `-- 126 passed, 2 failed, 4 reruns, 14m 52s` },
+      { e: 'jenkins-pytest', tag: 'build #219', title: '代码合并后 Jenkins 也会触发', data: `stage('Checkout') → stage('Setup') → stage('Run Tests')\n→ allure(results: [[path: 'reports/allure-results']])` },
+      { e: 'pytest-allure', tag: 'publish', title: 'Jenkins 发布 Allure 趋势报告' },
+      { e: 'sched-mysql', tag: 'DELETE old logs', title: '03:00 自动清理', note: '如果 03:00 后端正好在重启，起来后当天会补跑。', data: `DELETE FROM mqtt_message_log WHERE created_at < NOW() - INTERVAL 7 DAY;\n-- 18402 rows` },
+    ] },
+  { id: 'nacos', name: 'Nacos 配置切换', sub: '业务开关 · 回滚', base: [14, 9, 0],
+    desc: '测试前切换业务开关，测试后改回来。可以在页面上手动做，也可以作为用例的一个步骤。',
+    steps: [
+      { e: 'fe-api', tag: 'PUT /api/nacos/config', title: '修改业务开关', note: '用例里的 set-value 步骤走的也是这个接口。', data: { dataId: 'trade-service.yaml', group: 'DEFAULT_GROUP', change: { 'bid.auto-submit': 'false → true' } } },
+      { e: 'api-nacos', tag: 'POST /v1/auth/login', title: '登录 Nacos', note: 'token 按环境缓存，过期前复用。' },
+      { e: 'api-nacos', tag: 'POST /v1/cs/configs', title: '发布配置', data: `dataId=trade-service.yaml&group=DEFAULT_GROUP&type=yaml&content=…` },
+      { e: 'nacos-sutapi', tag: 'config changed', title: '业务服务热更新配置' },
+      { e: 'api-nacos', tag: 'GET /v1/cs/history', title: '查修改历史和差异', data: `- bid.auto-submit: false\n+ bid.auto-submit: true` },
+      { e: 'fe-api', d: -1, tag: '200 OK', title: '页面显示差异，可一键回滚' },
+    ] },
+];
+
+/* ---------- 绘制 ---------- */
+const svg = $('#dg');
+function mk(tag, attrs, parent) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function rounded(pts, r = 10) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    const l1 = Math.hypot(x1 - x0, y1 - y0), l2 = Math.hypot(x2 - x1, y2 - y1);
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    d += ` L${x1 - (x1 - x0) / l1 * rr},${y1 - (y1 - y0) / l1 * rr} Q${x1},${y1} ${x1 + (x2 - x1) / l2 * rr},${y1 + (y2 - y1) / l2 * rr}`;
+  }
+  const L = pts[pts.length - 1];
+  return d + ` L${L[0]},${L[1]}`;
+}
+
+const gZ = mk('g', {}, svg), gE = mk('g', {}, svg), gN = mk('g', {}, svg), gL = mk('g', {}, svg), gP = mk('g', {}, svg);
+[[12, 44, 748, 745, '测试平台 · GVTest', 'zp'], [870, 44, 418, 745, '被测环境 · 业务系统', 'zs']].forEach(([x, y, w, h, t, c]) => {
+  const g = mk('g', { class: 'zone ' + c }, gZ);
+  mk('rect', { x, y, width: w, height: h, rx: 12 }, g);
+  mk('text', { x: x + 16, y: y + 22 }, g).textContent = t;
+});
+
+const EM = {};
+E.forEach(([a, b, p, label, pts, ghost]) => {
+  const id = a + '-' + b;
+  const path = mk('path', { d: rounded(pts), class: `edge p-${p}` + (ghost ? ' ghost' : '') }, gE);
+  const len = path.getTotalLength();
+  const mid = path.getPointAtLength(len / 2);
+  const lab = mk('text', { x: mid.x + 6, y: mid.y - 6, class: `elabel p-${p}` }, gL);
+  lab.textContent = label;
+  EM[id] = { id, a, b, p, label, path, len, lab, ghost: !!ghost };
+});
+
+const NM = {};
+Object.entries(N).forEach(([id, n]) => {
+  const g = mk('g', { class: 'node' + (n.sut ? ' sut' : '') + (n.ghost ? ' ghost' : ''), transform: `translate(${n.x - W / 2},${n.y - H / 2})`, tabindex: 0, role: 'button', 'aria-label': n.t + '，查看说明' }, gN);
+  mk('rect', { class: 'ring', width: W, height: H, rx: 8 }, g);
+  mk('rect', { class: 'box', width: W, height: H, rx: 8 }, g);
+  mk('text', { class: 't', x: 14, y: 26 }, g).textContent = n.t;
+  mk('text', { class: 's', x: 14, y: 45 }, g).textContent = n.s;
+  g.addEventListener('click', () => showInfo(id, true));
+  g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showInfo(id, true); } });
+  g.addEventListener('mouseenter', () => focusNode(id));
+  g.addEventListener('mouseleave', () => focusNode(null));
+  g.addEventListener('focus', () => focusNode(id));
+  g.addEventListener('blur', () => focusNode(null));
+  NM[id] = g;
+});
+const edgesOf = id => Object.values(EM).filter(e => e.a === id || e.b === id);
+
+function focusNode(id) {
+  if (current) return;
+  svg.classList.toggle('focusing', !!id);
+  Object.values(EM).forEach(e => { const on = id && (e.a === id || e.b === id); e.path.classList.toggle('hl', !!on); e.lab.classList.toggle('show', !!on); });
+  Object.entries(NM).forEach(([k, g]) => g.classList.toggle('hl', !!id && (k === id || edgesOf(id).some(e => e.a === k || e.b === k))));
+}
+
+/* 图例 */
+$('#legend').innerHTML = Object.entries(PROTO).map(([k, v]) => `<span class="p-${k}"><i></i>${v}</span>`).join('') +
+  '<span class="gh"><i></i>生产环境链路（测试中被替代）</span>';
+
+/* ---------- 动画时钟 ---------- */
+let sim = 0, last = performance.now(), paused = false, speed = 1;
+const packets = new Set();
+let waiters = [];
+const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+function frame(ts) {
+  const dt = Math.min(64, ts - last); last = ts;
+  if (!paused) sim += dt * speed;
+  for (const p of packets) {
+    let t = p.amb ? (ts - p.start) / p.dur : (sim - p.start) / p.dur;
+    if (t >= 1) { p.g.remove(); packets.delete(p); if (p.res) p.res(); continue; }
+    t = Math.max(0, t);
+    const u = p.amb ? t : ease(t);
+    const pt = p.e.path.getPointAtLength((p.d > 0 ? u : 1 - u) * p.e.len);
+    p.g.setAttribute('transform', `translate(${pt.x},${pt.y})`);
+    if (p.g._tag) { const left = pt.x + p.g._tw + 14 > 1295; if (left !== p.g._left) { p.g._left = left; p.g._tag.setAttribute('transform', left ? `translate(${-p.g._tw - 10},-26)` : 'translate(10,-26)'); } }
+  }
+  waiters = waiters.filter(w => { if (sim >= w.at) { w.res(); return false; } return true; });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+const wait = ms => new Promise(res => waiters.push({ at: sim + ms, res }));
+
+function spawn(e, d, tag) {
+  const g = mk('g', { class: `pk p-${e.p}` + (tag ? '' : ' amb') }, gP);
+  if (tag) {
+    mk('circle', { class: 'halo', r: 11 }, g);
+    mk('circle', { class: 'core', r: 5.5 }, g);
+    const tg = mk('g', { class: 'tag', transform: 'translate(10,-26)' }, g);
+    const r = mk('rect', { rx: 4, height: 20 }, tg);
+    const tx = mk('text', { x: 7, y: 14 }, tg); tx.textContent = tag;
+    const tw = tx.getComputedTextLength() + 14;
+    r.setAttribute('width', tw);
+    g._tag = tg; g._tw = tw;
+  } else {
+    mk('circle', { class: 'core', r: 2.6 }, g);
+  }
+  const p = { e, d, g, amb: !tag };
+  if (tag) { p.start = sim; p.dur = 650 + e.len * 0.85; }
+  else { p.start = performance.now(); p.dur = e.len * 6 + 400; }
+  packets.add(p);
+  return new Promise(res => p.res = res);
+}
+
+/* 空闲时的日常流量 */
+const ambientEdges = Object.values(EM).filter(e => !e.ghost);
+setInterval(() => {
+  if (current || reduce || document.hidden) return;
+  const e = ambientEdges[Math.floor(Math.random() * ambientEdges.length)];
+  spawn(e, Math.random() < .65 ? 1 : -1);
+}, 260);
+
+/* ---------- 面板 ---------- */
+const tabs = { info: [$('#t-info'), $('#tab-info')], log: [$('#t-log'), $('#tab-log')] };
+function tab(name) { Object.entries(tabs).forEach(([k, [b, p]]) => { b.setAttribute('aria-selected', k === name); p.hidden = k !== name; }); }
+$('#t-info').onclick = () => tab('info');
+$('#t-log').onclick = () => tab('log');
+
+function scenesOf(id) { return SC.filter(s => s.steps.some(st => st.n === id || (st.e && (EM[st.e].a === id || EM[st.e].b === id)))); }
+function showInfo(id, switchTab) {
+  Object.values(NM).forEach(g => g.classList.remove('sel'));
+  if (!id) return renderOverview();
+  NM[id].classList.add('sel');
+  const n = N[id], d = D[id];
+  const conns = edgesOf(id).map(e => {
+    const other = e.a === id ? e.b : e.a, dir = e.a === id ? '→' : '←';
+    return `<li class="p-${e.p}"><span class="badge">${PROTO[e.p]}</span><span>${dir} <button type="button" data-node="${other}">${esc(N[other].t)}</button> <span class="lab">${esc(e.label)}</span></span></li>`;
+  }).join('');
+  const sc = scenesOf(id).map(s => `<button type="button" data-sc="${s.id}">${esc(s.name)}</button>`).join('');
+  $('#tab-info').innerHTML = `<div class="info">
+    <h2>${esc(n.t)}</h2><div class="sub">${esc(n.s)}${n.sut ? ' · 被测环境' : ' · 测试平台'}</div>
+    <p>${esc(d.role)}</p>
+    <h3>技术</h3><div class="chips">${d.tech.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>
+    <h3>实现要点</h3><ul>${d.pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    <h3>连接</h3><ul class="conn">${conns}</ul>
+    ${sc ? `<h3>参与的场景</h3><div class="scl">${sc}</div>` : ''}
+    <h3></h3><div class="scl"><button type="button" data-back>← 返回总览</button></div>
+  </div>`;
+  if (switchTab) tab('info');
+}
+function renderOverview() {
+  $('#tab-info').innerHTML = `<div class="info">
+    <h2>GVTest 是什么</h2>
+    <div class="sub">自动化测试平台 · 能源交易 / 虚拟电厂业务</div>
+    <p>为一套能源交易和储能调度系统做的全栈自动化测试平台。测试人员在网页上编写和编排用例，平台用队列把执行交给 Worker，由 pytest 驱动 Playwright 和 httpx 去测业务系统，结果逐条实时回写。</p>
+    <p>业务系统要和场站网关、外部交易平台通信，测试环境里没有这些对象，所以平台自己模拟网关（MQTT）、给外部接口打桩（HTTP + SSH 隧道），并能远程查日志、查数据库、改配置。</p>
+    <h3>怎么看这张图</h3>
+    <ol class="how">
+      <li>左边是测试平台，右边是被测环境；虚线框是生产环境里才有、测试时被平台替代的对象。</li>
+      <li>鼠标移到模块上，会高亮它的所有连接；点击查看实现说明。</li>
+      <li>在图上方选一个场景，请求会一步步沿连线流动，右侧「请求日志」显示每一步的数据。可以暂停、单步、调速度。</li>
+    </ol>
+    <h3>推荐先看</h3>
+    <div class="scl">${SC.slice(0, 3).map(s => `<button type="button" data-sc="${s.id}">${esc(s.name)}</button>`).join('')}</div>
+    <h3>技术栈</h3>
+    <div class="chips">${['FastAPI', 'Vue 3', 'Dramatiq', 'Redis', 'MySQL', 'pytest', 'Playwright', 'httpx', 'Allure', 'paho-mqtt', 'paramiko', 'APScheduler', 'Nacos', 'InfluxDB', 'Jenkins', 'Docker Compose'].map(t => `<span class="chip">${t}</span>`).join('')}</div>
+  </div>`;
+}
+$('#tab-info').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.node) showInfo(b.dataset.node, true);
+  else if (b.dataset.sc) play(SC.find(s => s.id === b.dataset.sc));
+  else if ('back' in b.dataset) showInfo(null);
+});
+renderOverview();
+
+/* ---------- 执行面板（场景「执行业务组」） ---------- */
+let ex = null;
+function setCase(s, id, st, t) { const c = s.cases.find(c => c.id === id); c.st = st; if (t !== undefined) c.t = t; }
+const ST = { queued: '排队', running: '执行中', passed: '通过', failed: '失败', rerun: '重跑' };
+function renderExec() {
+  const box = $('#exec');
+  if (!ex) { box.hidden = true; return; }
+  box.hidden = false;
+  const b = ex.br, v = b.vals || {};
+  const on = k => b.active === k ? ' act-on' : '';
+  let view;
+  if (b.screen === 'login') view = `<h4>登录</h4>
+    <div class="fld"><label>用户名</label><div class="in">${esc(v.user || '')}</div></div>
+    <div class="fld"><label>密码</label><div class="in">${esc(v.pw || '')}</div></div>
+    <span class="btn${on('login')}">登录</span>`;
+  else if (b.screen === 'plan') view = `<h4>新建功率计划</h4>
+    <div class="fld"><label>站点</label><div class="in">${esc(v.site || '')}</div></div>
+    <div class="fld"><label>类型</label><div class="in">${esc(v.type || '')}</div></div>
+    <div class="fld"><label>功率 kW</label><div class="in">${esc(v.power || '')}</div></div>
+    <div class="fld"><label>时间窗</label><div class="in">${esc(v.win || '')}</div></div>
+    <span class="btn${on('submit')}">提交</span>`;
+  else if (b.screen === 'list') view = `<h4>功率计划</h4>
+    <table><thead><tr><th>计划号</th><th>站点</th><th>类型</th><th>功率</th><th>状态</th></tr></thead><tbody>
+    <tr class="${on('row')}"><td>P-20261103-0007</td><td>1024</td><td>MFRR_UP</td><td>500</td><td class="chip-ok">已下发</td></tr>
+    <tr><td>P-20261103-0006</td><td>1024</td><td>FCR_N</td><td>200</td><td>已完成</td></tr></tbody></table>`;
+  else view = `<div class="blank">${b.screen === 'blank' ? 'about:blank' : '浏览器未启动'}</div>`;
+  box.innerHTML = `<ul class="cases">${ex.cases.map(c => `<li><span class="id">${c.id}</span><span class="ty">${c.ty}</span><span class="nm" title="${esc(c.nm)}">${esc(c.nm)}${c.t ? ` <span class="ty">${esc(c.t)}</span>` : ''}</span><span class="st ${c.st}">${ST[c.st]}</span></li>`).join('')}</ul>
+    <div class="bw${ex.shot ? ' shot' : ''}"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">${esc(b.url || '')}</span></div>
+    <div class="view">${view}</div><div class="act">${esc(b.act || 'Playwright 动作会显示在这里')}</div><div class="flash"></div></div>`;
+  ex.shot = false;
+}
+
+/* ---------- 日志 ---------- */
+let logN = 0, clock0 = 0, scStart = 0;
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+function clockStr() {
+  const ms = Math.round(clock0 + (sim - scStart));
+  const h = Math.floor(ms / 3600000) % 24, m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
+  return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms % 1000, 3)}`;
+}
+function hl(text) {
+  return esc(text)
+    .replace(/(&quot;[^&\n]*?&quot;)(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/(:\s*)(&quot;[^\n]*?&quot;)/g, '$1<span class="s">$2</span>')
+    .replace(/(:\s*)(-?\d+(?:\.\d+)?)(?=,?$)/gm, '$1<span class="n">$2</span>');
+}
+function addLog(st) {
+  const ol = $('#log');
+  if (logN === 0) ol.innerHTML = '';
+  logN++;
+  $('#logCnt').textContent = logN;
+  let route, p;
+  if (st.e) { const e = EM[st.e]; const [f, t] = (st.d || 1) > 0 ? [e.a, e.b] : [e.b, e.a]; route = `${N[f].t} → ${N[t].t}`; p = e.p; }
+  else { route = N[st.n].t + ' 内部处理'; p = 'node'; }
+  const data = st.data === undefined ? '' : (typeof st.data === 'string' ? `<pre>${esc(st.data)}</pre>` : `<pre>${hl(JSON.stringify(st.data, null, 2))}</pre>`);
+  const li = document.createElement('li');
+  li.className = 'lg';
+  li.innerHTML = `<div class="lg-h p-${p}"><span class="badge">${p === 'node' ? '处理' : PROTO[p]}</span><span class="rt">${esc(route)}</span><time>${clockStr()}</time></div>
+    <div class="lg-t">${esc(st.title)}${st.tag ? `<code>${esc(st.tag)}</code>` : ''}</div>${st.note ? `<p>${esc(st.note)}</p>` : ''}${data}`;
+  ol.appendChild(li);
+  ol.scrollTop = ol.scrollHeight;
+}
+
+/* ---------- 场景播放 ---------- */
+let current = null, token = 0, stepOnce = false, lastEdge = null, lastNode = null;
+const scbar = $('#scbar');
+SC.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'sc' + (i === 0 ? ' star' : ''); b.dataset.sc = s.id; b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = `${esc(s.name)}<small>${esc(s.sub)}</small>`;
+  b.onclick = () => play(s);
+  scbar.appendChild(b);
+});
+function clearMarks() {
+  Object.values(EM).forEach(e => { e.path.classList.remove('on', 'rev', 'hl'); e.lab.classList.remove('show'); });
+  Object.values(NM).forEach(g => g.classList.remove('on', 'inv', 'pulse', 'hl'));
+  svg.classList.remove('playing', 'focusing');
+}
+function stop() {
+  token++;
+  for (const p of packets) { p.g.remove(); }
+  packets.clear(); waiters = [];
+  clearMarks();
+  current = null; paused = false; stepOnce = false; lastEdge = lastNode = null;
+  scbar.querySelectorAll('.sc').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  updCtrl();
+}
+function updCtrl(text) {
+  $('#bPlay').disabled = $('#bStep').disabled = $('#bStop').disabled = !current;
+  $('#bPlay').textContent = paused ? '继续' : '暂停';
+  if (text !== undefined) $('#now').innerHTML = text;
+  else if (!current) $('#now').textContent = '空闲：图上是各连接的日常流量';
+}
+async function play(sc) {
+  stop();
+  const my = token;
+  current = sc;
+  scbar.querySelector(`[data-sc="${sc.id}"]`).setAttribute('aria-pressed', 'true');
+  svg.classList.add('playing');
+  const inv = new Set();
+  sc.steps.forEach(st => { if (st.n) inv.add(st.n); else { inv.add(EM[st.e].a); inv.add(EM[st.e].b); } });
+  inv.forEach(id => NM[id].classList.add('inv'));
+  logN = 0; $('#logCnt').textContent = '';
+  $('#log').innerHTML = '';
+  $('#loghead').innerHTML = `<b>${esc(sc.name)}</b>${esc(sc.desc)}`;
+  clock0 = ((sc.base[0] * 60 + sc.base[1]) * 60 + sc.base[2]) * 1000; scStart = sim;
+  ex = sc.exec ? { cases: [
+      { id: 'TC101', ty: 'UI', nm: '登录并创建 mFRR 功率计划', st: 'queued', t: '' },
+      { id: 'TC102', ty: 'API', nm: '查询最新计划并校验字段', st: 'queued', t: '' },
+      { id: 'TC103', ty: 'DB', nm: '校验计划已被网关 ACK', st: 'queued', t: '' }],
+    br: { screen: 'none', url: '', act: '' }, shot: false } : null;
+  renderExec();
+  tab('log');
+  $('#log').scrollTop = 0;
+  updCtrl();
+  for (let i = 0; i < sc.steps.length; i++) {
+    const st = sc.steps[i];
+    updCtrl(`<b>${i + 1}/${sc.steps.length}</b> ${esc(st.title)}`);
+    if (lastEdge) lastEdge.path.classList.remove('on', 'rev'), lastEdge.lab.classList.remove('show');
+    if (lastNode) lastNode.forEach(id => NM[id].classList.remove('on', 'pulse'));
+    if (st.e) {
+      const e = EM[st.e], d = st.d || 1;
+      e.path.classList.add('on'); e.path.classList.toggle('rev', d < 0); e.lab.classList.add('show');
+      NM[e.a].classList.add('on'); NM[e.b].classList.add('on');
+      lastEdge = e; lastNode = [e.a, e.b];
+      await spawn(e, d, st.tag);
+    } else {
+      NM[st.n].classList.add('on', 'pulse');
+      lastEdge = null; lastNode = [st.n];
+      await wait(1000);
+    }
+    if (my !== token) return;
+    addLog(st);
+    if (ex && st.ex) { st.ex(ex); renderExec(); }
+    if (stepOnce) { paused = true; stepOnce = false; updCtrl(`<b>${i + 1}/${sc.steps.length}</b> ${esc(st.title)}（已暂停）`); }
+    await wait(st.n ? 250 : 380);
+    if (my !== token) return;
+  }
+  const name = sc.name;
+  clearMarks();
+  current = null;
+  scbar.querySelectorAll('.sc').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  updCtrl(`场景「${esc(name)}」结束，共 ${sc.steps.length} 步`);
+}
+$('#bPlay').onclick = () => { paused = !paused; stepOnce = false; updCtrl(); };
+$('#bStep').onclick = () => { paused = false; stepOnce = true; updCtrl(); };
+$('#bStop').onclick = () => { stop(); };
+$('#speed').onchange = e => { speed = +e.target.value; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && current) stop(); });
+})();
+</script>

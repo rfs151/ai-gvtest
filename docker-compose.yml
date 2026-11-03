@@ -1,0 +1,18 @@
+# GVTest 架构全景：纯静态页面，nginx 提供服务。
+#   python deploy/make_site.py   # 改了 index.html 后重新生成 site/
+#   docker compose up -d
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: gvtest-showcase
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8099}:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
